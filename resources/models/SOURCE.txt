@@ -1,0 +1,26 @@
+Chinese Dragon
+Original scan: Stanford University Computer Graphics Laboratory, 1996.
+OBJ conversion and vertex normals: Morgan McGuire.
+Archive: https://casual-effects.com/data/
+Download: https://casual-effects.com/g3d/data10/research/model/dragon/dragon.zip
+Model information: https://casual-effects.com/g3d/data10/research/model/dragon/info.js
+Usage terms: https://graphics.stanford.edu/data/3Dscanrep/
+Downloaded: 2026-11-03
+
+Free research/learning use with attribution. Stanford asks for source acknowledgement;
+commercial use/product-for-sale requires permission. See Stanford's full usage terms
+and guidance for the Dragon model. This is not a CC0/public-domain model.
+
+Attribution: Stanford Computer Graphics Laboratory; Morgan McGuire,
+Computer Graphics Archive, July 2017, https://casual-effects.com/data/ .
+
+Original downloaded archive is retained as dragon-original.zip.
+SHA-256: 111124359a31e4d6b2eeb5398e5bc96a5d9e2d2a130afb10bb4cfbc011bdb797
+
+test.obj is a centered, uniformly scaled copy for the existing camera.
+Original bounding box: [-0.23978, -0.282958, -0.472247] to [0.207395, 0.422022, 0.527753]
+Center subtracted: [-0.0161925, 0.06953200000000001, 0.027753000000000028]
+Uniform scale: 2.0
+Positions: 435545; normals: 438368; triangles: 871306.
+The OBJ uses negative v//vn indices, supported by your loader.
+No UV coordinates, textures, or materials. No topology simplification.
