@@ -17,4 +17,6 @@ struct Uniforms
     simd_float4x4 model;
     simd_float4x4 view;
     simd_float4x4 projection;
+    
+    simd_float4 cameraPosition;
 };

@@ -6,33 +6,25 @@
 #include "math/Transform.hpp"
 #include "scene/Camera.hpp"
 #include "renderer/mesh/Mesh.hpp"
+#include "scene/Scene.hpp"
 
 class Renderer 
 {
 public:
     Renderer(MTL::Device* device, CA::MetalLayer* layer);
     ~Renderer();
-    void draw();
+    void draw(const Scene& scene);
 
 private:
     MTL::Device* device = nullptr;
     CA::MetalLayer* layer = nullptr;
-
-    std::unique_ptr<Mesh> mesh;
     
     MTL::CommandQueue* commandQueue = nullptr;
     MTL::RenderPipelineState* pipeline = nullptr;
-    MTL::Buffer* uniformBuffer = nullptr;
     MTL::Texture* depthTexture = nullptr;
     MTL::DepthStencilState* depthState = nullptr;
 
-    Transform triangleTransform;
-    Camera camera;
-
-    float time = 0.0f;
-
     void createPipeline();
-    void createVertexBuffer();
     void createDepthResources();
     void resizeDepthTexture(NS::UInteger width, NS::UInteger height);
 };

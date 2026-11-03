@@ -6,6 +6,10 @@
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
 
+#include <memory>
+#include "scene/Scene.hpp"
+
+
 class Renderer;
 
 class App
@@ -24,6 +28,8 @@ private:
     CA::MetalLayer* layer = nullptr;
 
     Renderer* renderer = nullptr;
+
+    std::unique_ptr<Scene> scene;
 
     bool running = false;
 

@@ -17,6 +17,7 @@ struct VertexOut
     float3 color;
     float2 uv;
     float3 normal;
+    float3 worldPosition;
 };
 
 struct Uniforms
@@ -24,6 +25,8 @@ struct Uniforms
     float4x4 model;
     float4x4 view;
     float4x4 projection;
+
+    float4 cameraPosition;
 };
 
 
@@ -31,11 +34,14 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]], constant Uniforms& unifor
 {
     VertexOut out;
 
+    float4 worldPos = uniforms.model * float4(in.position, 1.0);
+
+    out.worldPosition = worldPos.xyz;
+
     out.position = 
         uniforms.projection *
         uniforms.view *
-        uniforms.model * 
-        float4(in.position, 1.0);
+        worldPos;
 
     out.color = in.color;
     out.uv = in.uv;
@@ -54,15 +60,28 @@ float checker(float2 uv)
 }
 
 
-fragment float4 fragment_main(VertexOut in [[stage_in]])
+fragment float4 fragment_main(VertexOut in [[stage_in]], constant Uniforms& uniforms [[buffer(1)]])
 {
-    float3 normal = normalize(in.normal);
-    float3 lightDir = normalize(float3(0.5, 1.0, -0.5));
+    float3 N = normalize(in.normal);
+    float3 L = normalize(float3(0.5, 1.0, -0.5));
+    float3 V = normalize(uniforms.cameraPosition.xyz - in.worldPosition);
 
-    float diffuse = max(dot(normal, lightDir), 0.0);
+    // halfway vector between light and cam
+    float3 H = normalize(L + V); 
 
-    float ambient = 0.15;
-    float brightness = ambient + diffuse * 0.85;
+    float diffuse = max(dot(N, L), 0.0);
+    float specular = 0.0f;
 
-    return float4(in.color * brightness, 1.0);
+    if (diffuse > 0.0)
+    {
+        specular = pow(max(dot(N, H), 0.0), 32.0);
+    }
+
+    float3 ambientColor = in.color * 0.15;
+    float3 diffuseColor = in.color * diffuse * 0.7;
+    float3 specularColor = float3(1.0) * specular * 0.6;
+
+    float3 finalColor = ambientColor + diffuseColor + specularColor;
+
+    return float4(finalColor, 1.0);
 }

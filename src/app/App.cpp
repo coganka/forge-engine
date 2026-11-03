@@ -3,6 +3,10 @@
 #include "renderer/Renderer.hpp"
 #include "core/Constants.hpp"
 
+#include "assets/ObjLoader.hpp"
+#include "renderer/mesh/Mesh.hpp"
+#include <chrono>
+
 #include <iostream>
 
 App::App()
@@ -77,6 +81,26 @@ App::App()
         layer
     );
 
+    scene = std::make_unique<Scene>();
+
+    MeshData data = ObjLoader::load("resources/models/test.obj");
+
+    auto model = std::make_shared<Mesh>(
+        device, 
+        std::span<const Vertex>(data.vertices),
+        std::span<const uint32_t>(data.indices)
+    );
+
+    auto& left = scene->addEntity(model);
+    left.transform.position[0] = 0.0f;
+    left.transform.scale = {0.6f, 0.6f, 0.6f};
+
+    // auto& right = scene->addEntity(model);
+    // right.transform.position[0] = 0.8f;
+    // right.transform.scale = {0.6f, 0.6f, 0.6f};
+
+    scene->camera().position[2] = -2.0f;
+
     running = true;
 
     std::cout
@@ -87,8 +111,11 @@ App::App()
 
 void App::run()
 {
-    if (!renderer)
+    if (!renderer || !scene)
         return;
+
+    using Clock = std::chrono::steady_clock;
+    auto prevTime = Clock::now();
 
     while (running)
     {
@@ -97,7 +124,13 @@ void App::run()
         if (!running)
             break;
 
-        renderer->draw();
+        auto now = Clock::now();
+        float deltaTime = std::chrono::duration<float>(now - prevTime).count();
+    
+        prevTime = now;
+        
+        scene->update(deltaTime);
+        renderer->draw(*scene);
     }
 }
 
@@ -125,6 +158,7 @@ void App::processEvents()
 App::~App()
 {
     delete renderer;
+    scene.reset();
 
     if (metalView)
     {

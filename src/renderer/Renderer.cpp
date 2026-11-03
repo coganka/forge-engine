@@ -14,7 +14,6 @@ Renderer::Renderer(MTL::Device* device, CA::MetalLayer* layer)
     commandQueue = device->newCommandQueue();
     createPipeline();
     createDepthResources();
-    createVertexBuffer();
 }
 
 
@@ -22,7 +21,6 @@ Renderer::~Renderer()
 {
     if (pipeline) pipeline->release();
     if (commandQueue) commandQueue->release();
-    if (uniformBuffer) uniformBuffer->release();
     if (depthTexture) depthTexture->release();
     if (depthState) depthState->release();
 }
@@ -125,32 +123,9 @@ void Renderer::createPipeline()
 }
 
 
-void Renderer::createVertexBuffer()
+void Renderer::draw(const Scene& scene)
 {
-    MeshData data = ObjLoader::load("resources/models/test.obj");
-
-    Uniforms uniforms = {};
-    uniforms.model = matrix_identity_float4x4;
-    uniforms.view = matrix_identity_float4x4;
-    uniforms.projection = matrix_identity_float4x4;
-
-    mesh = std::make_unique<Mesh>(
-        device, 
-        std::span<const Vertex>(data.vertices),
-        std::span<const uint32_t>(data.indices)
-    );
-
-    uniformBuffer = device->newBuffer(
-        &uniforms,
-        sizeof(Uniforms),
-        MTL::ResourceStorageModeShared
-    );
-}
-
-
-void Renderer::draw()
-{
-    if (!pipeline || !uniformBuffer || !commandQueue || !depthState)
+    if (!pipeline || !commandQueue || !depthState)
         return;
 
     auto* drawable = layer->nextDrawable();
@@ -188,39 +163,54 @@ void Renderer::draw()
 
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
-    time += 0.01f;
-
-    triangleTransform.rotation[1] = time;
-    triangleTransform.rotation[2] = time * 0.4f;
-
-    camera.position[0] = 0.0f;
-    camera.position[1] = 0.0f;
-    camera.position[2] = -3.0f;
-
-    // “Give me the buffer’s raw memory address, and interpret that memory as a Uniforms struct.”
-    auto* uniforms = static_cast<Uniforms*>(uniformBuffer->contents());
-
-    uniforms->model = triangleTransform.modelMatrix();
-    uniforms->view = camera.viewMatrix();
-    uniforms->projection = camera.projectionMatrix(aspectRatio);
+    const auto view = scene.camera().viewMatrix();
+    const auto projection = scene.camera().projectionMatrix(aspectRatio);
 
     encoder->setRenderPipelineState(pipeline);
-
-    encoder->setVertexBuffer(mesh->vertexBuffer(), 0, 0);
-    encoder->setVertexBuffer(uniformBuffer, 0, 1);
-
     encoder->setDepthStencilState(depthState);
     
-    encoder->drawIndexedPrimitives(
-        MTL::PrimitiveTypeTriangle,
-        mesh->indexCount(),
-        MTL::IndexTypeUInt32,
-        mesh->indexBuffer(),
-        NS::UInteger(0)
-    );    
+    for (const auto& entity : scene.entities())
+    {
+        Uniforms uniforms{};
+        uniforms.model = entity.transform.modelMatrix();
+        uniforms.view = view;
+        uniforms.projection = projection;
+
+        uniforms.cameraPosition = {
+            scene.camera().position[0],
+            scene.camera().position[1],
+            scene.camera().position[2],
+            1.0f
+        };
+
+        encoder->setVertexBytes(
+            &uniforms,
+            sizeof(Uniforms),
+            1
+        );
+
+        encoder->setFragmentBytes(
+            &uniforms,
+            sizeof(Uniforms),
+            1
+        );
+
+        encoder->setVertexBuffer(
+            entity.mesh->vertexBuffer(),
+            0,
+            0
+        );
+
+        encoder->drawIndexedPrimitives(
+            MTL::PrimitiveTypeTriangle,
+            entity.mesh->indexCount(),
+            MTL::IndexTypeUInt32,
+            entity.mesh->indexBuffer(),
+            NS::UInteger(0)
+        );
+    }
 
     encoder->endEncoding();
-
     commandBuffer->presentDrawable(drawable);
     commandBuffer->commit();
 }
