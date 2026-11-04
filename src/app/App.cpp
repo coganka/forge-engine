@@ -91,15 +91,28 @@ App::App()
         std::span<const uint32_t>(data.indices)
     );
 
-    auto& left = scene->addEntity(model);
-    left.transform.position[0] = 0.0f;
-    left.transform.scale = {0.6f, 0.6f, 0.6f};
-
-    // auto& right = scene->addEntity(model);
-    // right.transform.position[0] = 0.8f;
-    // right.transform.scale = {0.6f, 0.6f, 0.6f};
+    auto& dragon = scene->addEntity(model);
+    dragon.transform.position[0] = 0.0f;
+    dragon.transform.scale = {0.6f, 0.6f, 0.6f};
 
     scene->camera().position[2] = -2.0f;
+
+    Light sun;
+    sun.type = LightType::Directional;
+    sun.direction = {-0.5f, -1.0f, 0.5f};
+    sun.color = {1.0f, 0.2f, 0.1f};
+    sun.intensity = 2.0f;
+
+    scene->addLight(sun);
+
+    Light point;
+    point.type = LightType::Point;
+    point.position = {1.5f, 1.0f, -1.0f};
+    point.color = {0.2f, 0.4f, 1.0f};
+    point.intensity = 3.0f;
+    point.range = 6.0f;
+
+    scene->addLight(point);
 
     running = true;
 

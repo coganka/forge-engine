@@ -8,8 +8,9 @@ struct VertexIn
     float3 position [[attribute(0)]];
     float3 color [[attribute(1)]];
     float2 uv [[attribute(2)]];
-    float2 normal [[attribute(3)]];
+    float3 normal [[attribute(3)]];
 };
+
 
 struct VertexOut
 {
@@ -20,6 +21,7 @@ struct VertexOut
     float3 worldPosition;
 };
 
+
 struct Uniforms
 {
     float4x4 model;
@@ -27,6 +29,21 @@ struct Uniforms
     float4x4 projection;
 
     float4 cameraPosition;
+};
+
+
+struct GPULight
+{
+    float4 position;
+    float4 direction;
+    float4 color;
+
+    float intensity;
+    float range;
+    float innerConeCos;
+    float outerConeCos;
+
+    uint type;
 };
 
 
@@ -60,28 +77,62 @@ float checker(float2 uv)
 }
 
 
-fragment float4 fragment_main(VertexOut in [[stage_in]], constant Uniforms& uniforms [[buffer(1)]])
+fragment float4 fragment_main(
+    VertexOut in [[stage_in]], 
+    constant Uniforms& uniforms [[buffer(1)]],
+    constant GPULight* lights [[buffer(2)]],
+    constant uint& lightCount [[buffer(3)]]
+)
 {
     float3 N = normalize(in.normal);
-    float3 L = normalize(float3(0.5, 1.0, -0.5));
     float3 V = normalize(uniforms.cameraPosition.xyz - in.worldPosition);
 
-    // halfway vector between light and cam
-    float3 H = normalize(L + V); 
+    float3 finalColor = in.color * 0.15;
 
-    float diffuse = max(dot(N, L), 0.0);
-    float specular = 0.0f;
-
-    if (diffuse > 0.0)
+    for (uint i = 0; i < lightCount; ++i) 
     {
-        specular = pow(max(dot(N, H), 0.0), 32.0);
+        GPULight light = lights[i];
+
+        float3 L;
+        float attenuation = 1.0f;
+
+        if (light.type == 0)
+        {
+            L = normalize(-light.direction.xyz);
+        } else if (light.type == 1) 
+        {
+            float3 toLight = light.position.xyz - in.worldPosition;
+            float distanceToLight = length(toLight);
+
+            L = toLight / max(distanceToLight, 0.0001);
+
+            float range = max(light.range, 0.0001);
+
+            float normalizedDistance = distanceToLight / range;
+
+            float falloff = max(
+                1.0 - normalizedDistance * normalizedDistance,
+                0.0
+            );
+
+            attenuation = falloff * falloff;
+        } else 
+        {
+            continue;
+        }
+
+        float diffuse = max(dot(N, L), 0.0);
+        float3 H = normalize(L + V);
+        float specular = 0.0;
+
+        if (diffuse > 0.0)
+        {
+            specular = pow(max(dot(N, H), 0.0), 32.0);
+        }
+
+        float3 radiance = light.color.rgb * light.intensity * attenuation;
+        finalColor += in.color * diffuse * radiance * 0.7 + specular * radiance * 0.6;
     }
-
-    float3 ambientColor = in.color * 0.15;
-    float3 diffuseColor = in.color * diffuse * 0.7;
-    float3 specularColor = float3(1.0) * specular * 0.6;
-
-    float3 finalColor = ambientColor + diffuseColor + specularColor;
 
     return float4(finalColor, 1.0);
 }

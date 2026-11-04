@@ -20,3 +20,18 @@ struct Uniforms
     
     simd_float4 cameraPosition;
 };
+
+
+struct GPULight
+{
+    simd_float4 position;
+    simd_float4 direction;
+    simd_float4 color;
+
+    float intensity;
+    float range;
+    float innerConeCos;
+    float outerConeCos;
+
+    uint32_t type;
+};

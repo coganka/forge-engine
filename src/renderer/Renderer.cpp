@@ -1,11 +1,17 @@
-#include "Renderer.hpp"
-#include "renderer/Types.hpp"
-#include <iostream>
-#include <Foundation/Foundation.hpp>
 #include <cmath>
 #include <memory>
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <iostream>
+#include <Foundation/Foundation.hpp>
+#include <numbers>
+
+#include "Renderer.hpp"
+#include "renderer/Types.hpp"
 #include "renderer/mesh/Mesh.hpp"
 #include "assets/ObjLoader.hpp"
+
 
 
 Renderer::Renderer(MTL::Device* device, CA::MetalLayer* layer)
@@ -168,6 +174,51 @@ void Renderer::draw(const Scene& scene)
 
     encoder->setRenderPipelineState(pipeline);
     encoder->setDepthStencilState(depthState);
+
+    constexpr size_t MaxLights = 16;
+
+    std::array<GPULight, MaxLights> gpuLights{};
+
+    const size_t lightCount =
+        std::min(scene.lights().size(), MaxLights);
+
+    for (size_t i = 0; i < lightCount; ++i)
+    {
+        const Light& light = scene.lights()[i];
+        GPULight& gpu = gpuLights[i];
+
+        gpu.position = {
+            light.position[0],
+            light.position[1],
+            light.position[2],
+            1.0f
+        };
+
+        gpu.direction = {
+            light.direction[0],
+            light.direction[1],
+            light.direction[2],
+            0.0f
+        };
+
+        gpu.color = {
+            light.color[0],
+            light.color[1],
+            light.color[2],
+            1.0f
+        };
+
+        gpu.intensity = light.intensity;
+        gpu.range = light.range;
+
+        gpu.innerConeCos =
+            std::cos(light.innerConeAngle * std::numbers::pi_v<float> / 180.0f);
+
+        gpu.outerConeCos =
+            std::cos(light.outerConeAngle * std::numbers::pi_v<float> / 180.0f);
+
+        gpu.type = static_cast<uint32_t>(light.type);
+    }
     
     for (const auto& entity : scene.entities())
     {
@@ -193,6 +244,20 @@ void Renderer::draw(const Scene& scene)
             &uniforms,
             sizeof(Uniforms),
             1
+        );
+
+        encoder->setFragmentBytes(
+            gpuLights.data(),
+            sizeof(GPULight) * lightCount,
+            2
+        );
+
+        uint32_t gpuLightCount = static_cast<uint32_t>(lightCount);
+
+        encoder->setFragmentBytes(
+            &gpuLightCount,
+            sizeof(gpuLightCount),
+            3
         );
 
         encoder->setVertexBuffer(

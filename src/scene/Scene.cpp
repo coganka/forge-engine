@@ -24,3 +24,10 @@ void Scene::update(float deltaTime)
         return;
     entities_[0].transform.rotation[1] += deltaTime;
 }
+
+
+Light& Scene::addLight(const Light& light)
+{
+    lights_.push_back(light);
+    return lights_.back();
+}
