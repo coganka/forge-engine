@@ -21,8 +21,10 @@ private:
     
     MTL::CommandQueue* commandQueue = nullptr;
     MTL::RenderPipelineState* pipeline = nullptr;
+    MTL::RenderPipelineState* unlitPipeline = nullptr;
     MTL::Texture* depthTexture = nullptr;
     MTL::DepthStencilState* depthState = nullptr;
+    std::unique_ptr<Mesh> lightSphereMesh;
 
     void createPipeline();
     void createDepthResources();

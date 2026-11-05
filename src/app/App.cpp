@@ -107,7 +107,7 @@ App::App()
 
     Light point;
     point.type = LightType::Point;
-    point.position = {1.5f, 1.0f, -1.0f};
+    point.position = {0.5f, 0.35f, -1.0f};
     point.color = {0.2f, 0.4f, 1.0f};
     point.intensity = 3.0f;
     point.range = 6.0f;

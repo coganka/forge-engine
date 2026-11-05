@@ -20,12 +20,22 @@ Renderer::Renderer(MTL::Device* device, CA::MetalLayer* layer)
     commandQueue = device->newCommandQueue();
     createPipeline();
     createDepthResources();
+
+    MeshData sphereData =
+        ObjLoader::load("resources/models/sphere.obj");
+
+    lightSphereMesh = std::make_unique<Mesh>(
+        device,
+        std::span<const Vertex>(sphereData.vertices),
+        std::span<const uint32_t>(sphereData.indices)
+    );
 }
 
 
 Renderer::~Renderer()
 {
     if (pipeline) pipeline->release();
+    if (unlitPipeline) unlitPipeline->release();
     if (commandQueue) commandQueue->release();
     if (depthTexture) depthTexture->release();
     if (depthState) depthState->release();
@@ -97,7 +107,7 @@ void Renderer::createPipeline()
     setAttribute(0, MTL::VertexFormatFloat3, 0);
     setAttribute(1, MTL::VertexFormatFloat3, 12);
     setAttribute(2, MTL::VertexFormatFloat2, 24);
-    setAttribute(3, MTL::VertexFormatFloat2, 32);
+    setAttribute(3, MTL::VertexFormatFloat3, 32);
 
     vertexDescriptor
         ->layouts()
@@ -121,6 +131,38 @@ void Renderer::createPipeline()
             << '\n';
     }
 
+    auto* unlitVertexFn = library->newFunction(
+        NS::String::string("unlit_vertex", NS::UTF8StringEncoding)
+    );
+
+    auto* unlitFragmentFn = library->newFunction(
+        NS::String::string("unlit_fragment", NS::UTF8StringEncoding)
+    );
+
+    if (!unlitVertexFn || !unlitFragmentFn)
+    {
+        std::cerr << "unlit shader funcs not found\n";
+    } else 
+    {
+        descriptor->setVertexFunction(unlitVertexFn);
+        descriptor->setFragmentFunction(unlitFragmentFn);
+
+        unlitPipeline = device->newRenderPipelineState(
+            descriptor,
+            &error
+        );
+
+        if (!unlitPipeline)
+        {
+            std::cerr << "Unlit pipeline creation failed: "
+                    << (error ? error->localizedDescription()->utf8String() : "unknown")
+                    << '\n';
+        }
+    }
+
+    if(unlitVertexFn) unlitVertexFn->release();
+    if(unlitFragmentFn) unlitFragmentFn->release();
+
     descriptor->release();
     vertexDescriptor->release();
     vertexFunction->release();
@@ -131,7 +173,7 @@ void Renderer::createPipeline()
 
 void Renderer::draw(const Scene& scene)
 {
-    if (!pipeline || !commandQueue || !depthState)
+    if (!pipeline || !unlitPipeline || !commandQueue || !depthState)
         return;
 
     auto* drawable = layer->nextDrawable();
@@ -153,7 +195,7 @@ void Renderer::draw(const Scene& scene)
     color->setStoreAction(MTL::StoreActionStore);
 
     color->setClearColor(
-        MTL::ClearColor(0.5, 0.2, 0.7, 1.0)
+        MTL::ClearColor(0.0, 0.0, 0.0, 1.0)
     );
 
     auto* commandBuffer = commandQueue->commandBuffer();
@@ -271,6 +313,43 @@ void Renderer::draw(const Scene& scene)
             entity.mesh->indexCount(),
             MTL::IndexTypeUInt32,
             entity.mesh->indexBuffer(),
+            NS::UInteger(0)
+        );
+    }
+
+    encoder->setRenderPipelineState(unlitPipeline);
+
+    for (const auto& light : scene.lights())
+    {
+        if (light.type != LightType::Point)
+            continue;
+
+        Transform transform;
+        transform.position = light.position;
+        transform.scale = {0.12f, 0.12f, 0.12f};
+
+        Uniforms uniforms{};
+        uniforms.model = transform.modelMatrix();
+        uniforms.view = view;
+        uniforms.projection = projection;
+
+        encoder->setVertexBytes(
+            &uniforms,
+            sizeof(Uniforms),
+            1
+        );
+
+        encoder->setVertexBuffer(
+            lightSphereMesh->vertexBuffer(),
+            0,
+            0
+        );
+
+        encoder->drawIndexedPrimitives(
+            MTL::PrimitiveTypeTriangle,
+            lightSphereMesh->indexCount(),
+            MTL::IndexTypeUInt32,
+            lightSphereMesh->indexBuffer(),
             NS::UInteger(0)
         );
     }
