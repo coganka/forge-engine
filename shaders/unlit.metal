@@ -41,5 +41,8 @@ vertex VertexOut unlit_vertex(
 
 fragment float4 unlit_fragment()
 {
-    return float4(0.2, 0.4, 1.0, 1.0);
+    float3 emissionColor = float3(0.2, 0.4, 1.0);
+    float emissionIntensity = 8.0;
+
+    return float4(emissionColor * emissionIntensity, 1.0);
 }

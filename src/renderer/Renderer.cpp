@@ -6,6 +6,7 @@
 #include <iostream>
 #include <Foundation/Foundation.hpp>
 #include <numbers>
+#include <stdexcept>
 
 #include "Renderer.hpp"
 #include "renderer/Types.hpp"
@@ -39,6 +40,8 @@ Renderer::~Renderer()
     if (commandQueue) commandQueue->release();
     if (depthTexture) depthTexture->release();
     if (depthState) depthState->release();
+    if (hdrTexture) hdrTexture->release();
+    if (tonemapPipeline) tonemapPipeline->release();
 }
 
 
@@ -92,7 +95,7 @@ void Renderer::createPipeline()
     descriptor
         ->colorAttachments()
         ->object(0)
-        ->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
+        ->setPixelFormat(MTL::PixelFormatRGBA16Float);
 
     auto* vertexDescriptor = MTL::VertexDescriptor::alloc()->init();
 
@@ -163,6 +166,44 @@ void Renderer::createPipeline()
     if(unlitVertexFn) unlitVertexFn->release();
     if(unlitFragmentFn) unlitFragmentFn->release();
 
+    auto* fullscreenVertexFn = library->newFunction(
+        NS::String::string("fullscreen_vertex", NS::UTF8StringEncoding)
+    );
+
+    auto* tonemapFragmentFn = library->newFunction(
+        NS::String::string("tonemap_fragment", NS::UTF8StringEncoding)
+    );
+
+    if (!fullscreenVertexFn || !tonemapFragmentFn)
+        throw std::runtime_error("Tone mapping shaders not found");
+
+    auto* tonemapDesc =
+        MTL::RenderPipelineDescriptor::alloc()->init();
+
+    tonemapDesc->setVertexFunction(fullscreenVertexFn);
+    tonemapDesc->setFragmentFunction(tonemapFragmentFn);
+
+    tonemapDesc->colorAttachments()
+        ->object(0)
+        ->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
+
+    // No vertex descriptor or depth attachment needed
+    tonemapPipeline = device->newRenderPipelineState(
+        tonemapDesc,
+        &error
+    );
+
+    if (!tonemapPipeline)
+    {
+        std::cerr << "Tone mapping pipeline failed: "
+                << (error ? error->localizedDescription()->utf8String() : "unknown")
+                << '\n';
+    }
+
+    tonemapDesc->release();
+    fullscreenVertexFn->release();
+    tonemapFragmentFn->release();
+
     descriptor->release();
     vertexDescriptor->release();
     vertexFunction->release();
@@ -186,11 +227,12 @@ void Renderer::draw(const Scene& scene)
     auto height = drawable->texture()->height();
 
     resizeDepthTexture(width, height);
+    resizeHDRTexture(width, height);
 
     auto* pass = MTL::RenderPassDescriptor::renderPassDescriptor();
     auto* color = pass->colorAttachments()->object(0);
 
-    color->setTexture(drawable->texture());
+    color->setTexture(hdrTexture);
     color->setLoadAction(MTL::LoadActionClear);
     color->setStoreAction(MTL::StoreActionStore);
 
@@ -355,6 +397,34 @@ void Renderer::draw(const Scene& scene)
     }
 
     encoder->endEncoding();
+
+    // Second pass: HDR texture -> display drawable
+    auto* displayPass =
+        MTL::RenderPassDescriptor::renderPassDescriptor();
+
+    auto* displayColor =
+        displayPass->colorAttachments()->object(0);
+
+    displayColor->setTexture(drawable->texture());
+    displayColor->setLoadAction(MTL::LoadActionDontCare);
+    displayColor->setStoreAction(MTL::StoreActionStore);
+
+    auto* displayEncoder =
+        commandBuffer->renderCommandEncoder(displayPass);
+
+    displayEncoder->setRenderPipelineState(tonemapPipeline);
+
+    // HDR texture becomes input texture at slot 0
+    displayEncoder->setFragmentTexture(hdrTexture, 0);
+
+    displayEncoder->drawPrimitives(
+        MTL::PrimitiveTypeTriangle,
+        NS::UInteger(0),
+        NS::UInteger(3)
+    );
+
+    displayEncoder->endEncoding();
+
     commandBuffer->presentDrawable(drawable);
     commandBuffer->commit();
 }
@@ -396,4 +466,42 @@ void Renderer::resizeDepthTexture(NS::UInteger width, NS::UInteger height)
     desc->setStorageMode(MTL::StorageModePrivate);
 
     depthTexture = device->newTexture(desc);
+}
+
+
+void Renderer::resizeHDRTexture(NS::UInteger width, NS::UInteger height)
+{
+    if (hdrTexture &&
+        hdrTexture->width() == width &&
+        hdrTexture->height() == height)
+    {
+        return;
+    }
+
+    auto* descriptor =
+        MTL::TextureDescriptor::texture2DDescriptor(
+            MTL::PixelFormatRGBA16Float,
+            width,
+            height,
+            false
+        );
+
+    descriptor->setUsage(
+        MTL::TextureUsageRenderTarget |
+        MTL::TextureUsageShaderRead
+    );
+
+    descriptor->setStorageMode(
+        MTL::StorageModePrivate
+    );
+
+    auto* newTexture = device->newTexture(descriptor);
+
+    if (!newTexture)
+        throw std::runtime_error("Failed to create HDR texture");
+
+    if (hdrTexture)
+        hdrTexture->release();
+
+    hdrTexture = newTexture;
 }

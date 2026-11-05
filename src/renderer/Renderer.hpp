@@ -22,11 +22,14 @@ private:
     MTL::CommandQueue* commandQueue = nullptr;
     MTL::RenderPipelineState* pipeline = nullptr;
     MTL::RenderPipelineState* unlitPipeline = nullptr;
+    MTL::RenderPipelineState* tonemapPipeline = nullptr;
     MTL::Texture* depthTexture = nullptr;
+    MTL::Texture* hdrTexture = nullptr;
     MTL::DepthStencilState* depthState = nullptr;
     std::unique_ptr<Mesh> lightSphereMesh;
 
     void createPipeline();
     void createDepthResources();
     void resizeDepthTexture(NS::UInteger width, NS::UInteger height);
+    void resizeHDRTexture(NS::UInteger width, NS::UInteger height);
 };

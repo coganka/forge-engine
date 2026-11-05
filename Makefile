@@ -31,11 +31,12 @@ $(TARGET): $(SOURCES) $(HEADERS) resources/Info.plist Makefile
 	$(CXX) $(CXXFLAGS) $(SOURCES) $(LDLIBS) -o $@
 	cp resources/Info.plist $(APP)/Info.plist
 
-$(SHADER): shaders/mesh.metal shaders/unlit.metal Makefile
+$(SHADER): shaders/mesh.metal shaders/unlit.metal shaders/tonemap.metal Makefile
 	mkdir -p $(APP)/Resources
 	xcrun -sdk macosx metal -c $< -o build/mesh.air
 	xcrun -sdk macosx metal -c shaders/unlit.metal -o build/unlit.air
-	xcrun -sdk macosx metallib build/mesh.air build/unlit.air -o $@
+	xcrun -sdk macosx metal -c shaders/tonemap.metal -o build/tonemap.air
+	xcrun -sdk macosx metallib build/mesh.air build/unlit.air build/tonemap.air -o $@
 
 run: build
 	./$(TARGET)
