@@ -37,11 +37,13 @@ Renderer::~Renderer()
 {
     if (pipeline) pipeline->release();
     if (unlitPipeline) unlitPipeline->release();
+    if (tonemapPipeline) tonemapPipeline->release();
+    if (bloomExtractPipeline) bloomExtractPipeline->release();
     if (commandQueue) commandQueue->release();
     if (depthTexture) depthTexture->release();
     if (depthState) depthState->release();
     if (hdrTexture) hdrTexture->release();
-    if (tonemapPipeline) tonemapPipeline->release();
+    if (bloomTexture) bloomTexture->release();
 }
 
 
@@ -203,6 +205,37 @@ void Renderer::createPipeline()
     tonemapDesc->release();
     fullscreenVertexFn->release();
     tonemapFragmentFn->release();
+
+    auto* bloomVertexFn = library->newFunction(
+        NS::String::string("bloom_vertex", NS::UTF8StringEncoding)
+    );
+
+    auto* bloomFragmentFn = library->newFunction(
+        NS::String::string("bloom_extract", NS::UTF8StringEncoding)
+    );
+
+    if (!bloomVertexFn || !bloomFragmentFn)
+        throw std::runtime_error("Bloom shader functions missing");
+
+    auto* bloomDesc =
+        MTL::RenderPipelineDescriptor::alloc()->init();
+
+    bloomDesc->setVertexFunction(bloomVertexFn);
+    bloomDesc->setFragmentFunction(bloomFragmentFn);
+
+    bloomDesc->colorAttachments()
+        ->object(0)
+        ->setPixelFormat(MTL::PixelFormatRGBA16Float);
+
+    bloomExtractPipeline =
+        device->newRenderPipelineState(bloomDesc, &error);
+
+    if (!bloomExtractPipeline)
+        throw std::runtime_error("Bloom extraction pipeline failed");
+
+    bloomDesc->release();
+    bloomVertexFn->release();
+    bloomFragmentFn->release();
 
     descriptor->release();
     vertexDescriptor->release();
@@ -414,8 +447,8 @@ void Renderer::draw(const Scene& scene)
 
     displayEncoder->setRenderPipelineState(tonemapPipeline);
 
-    // HDR texture becomes input texture at slot 0
     displayEncoder->setFragmentTexture(hdrTexture, 0);
+    displayEncoder->setFragmentTexture(bloomTexture, 1);
 
     displayEncoder->drawPrimitives(
         MTL::PrimitiveTypeTriangle,
@@ -424,6 +457,32 @@ void Renderer::draw(const Scene& scene)
     );
 
     displayEncoder->endEncoding();
+
+    resizeBloomTexture(width, height);
+
+    auto* bloomPass =
+        MTL::RenderPassDescriptor::renderPassDescriptor();
+
+    auto* bloomColor =
+        bloomPass->colorAttachments()->object(0);
+
+    bloomColor->setTexture(bloomTexture);
+    bloomColor->setLoadAction(MTL::LoadActionDontCare);
+    bloomColor->setStoreAction(MTL::StoreActionStore);
+
+    auto* bloomEncoder =
+        commandBuffer->renderCommandEncoder(bloomPass);
+
+    bloomEncoder->setRenderPipelineState(bloomExtractPipeline);
+    bloomEncoder->setFragmentTexture(hdrTexture, 0);
+
+    bloomEncoder->drawPrimitives(
+        MTL::PrimitiveTypeTriangle,
+        NS::UInteger(0),
+        NS::UInteger(3)
+    );
+
+    bloomEncoder->endEncoding();
 
     commandBuffer->presentDrawable(drawable);
     commandBuffer->commit();
@@ -504,4 +563,40 @@ void Renderer::resizeHDRTexture(NS::UInteger width, NS::UInteger height)
         hdrTexture->release();
 
     hdrTexture = newTexture;
+}
+
+
+void Renderer::resizeBloomTexture(
+    NS::UInteger width,
+    NS::UInteger height
+)
+{
+    if (bloomTexture &&
+        bloomTexture->width() == width &&
+        bloomTexture->height() == height)
+        return;
+
+    auto* desc = MTL::TextureDescriptor::texture2DDescriptor(
+        MTL::PixelFormatRGBA16Float,
+        width,
+        height,
+        false
+    );
+
+    desc->setUsage(
+        MTL::TextureUsageRenderTarget |
+        MTL::TextureUsageShaderRead
+    );
+
+    desc->setStorageMode(MTL::StorageModePrivate);
+
+    auto* newTexture = device->newTexture(desc);
+
+    if (!newTexture)
+        throw std::runtime_error("Bloom texture allocation failed");
+
+    if (bloomTexture)
+        bloomTexture->release();
+
+    bloomTexture = newTexture;
 }
