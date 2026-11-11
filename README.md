@@ -9,14 +9,15 @@ I'm building Forge to learn how rendering and engine systems work beneath the AP
 - Metal rendering with vertex and index buffers, shaders, and depth testing.
 - Model, view, and projection transforms with a perspective camera.
 - OBJ mesh loading with position, UV, and normal data.
-- Basic lighting experiments using ambient, diffuse, and Blinn-Phong specular terms.
+- Textured metallic/roughness materials, normal maps, GGX lighting, HDR and bloom.
+- Directional shadow mapping; point-light shadows are not implemented yet.
 - A simple scene and entity structure with per-entity transforms and shared meshes.
 
 The focus is on understanding the math, data flow, and resource management behind each feature, then measuring and improving the implementation.
 
 ## Where it's heading
 
-The goal is a compact engine that can run a small interactive 3D scene with convincing lighting and materials. Planned areas include texture loading, PBR materials, shadows, input, and better scene management. I also want to explore custom memory allocation, CPU/GPU synchronization, and profiling as the project grows.
+The goal is a compact engine that can run a small interactive 3D scene with convincing lighting and materials. Planned areas include environment lighting, point-light shadows, input, and better scene management. I also want to explore custom memory allocation, CPU/GPU synchronization, and profiling as the project grows.
 
 This is an ongoing learning project, with plenty still to implement and refine.
 
@@ -32,10 +33,14 @@ mkdir -p vendor
 git clone https://github.com/apple/metal-cpp.git vendor/metal-cpp
 ```
 
-Place an OBJ model at `resources/models/test.obj`, then run from the repository root:
+The test scene uses local model and texture files that are not included in the repository. Run from the project root:
 
 ```sh
 make run
 ```
 
-Downloaded dependencies, model files, and build output are excluded from Git. The current test model's source and usage terms are documented in [SOURCE.txt](resources/models/SOURCE.txt).
+Downloaded dependencies, model files, and build output are excluded from Git. Source and license notes are kept in [Lantern credits](resources/models/lantern/SOURCE.md) and [paving credits](resources/textures/paving-stones/SOURCE.md).
+
+## Textured material test
+
+`make run` opens the CC0 Lantern scene with a normal-mapped stone paving ground, normal mapping, metallic/roughness lighting, emissive bloom and a warm point light inside the stationary lantern. The background is black and ambient fill is disabled. Directional PCF shadows remain available when a directional light is added. Scene settings live in `src/scene/TestScene.cpp`.

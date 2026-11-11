@@ -2,6 +2,7 @@ CXX := xcrun clang++
 CXXFLAGS := -std=c++20 -Wall -Wextra -g -Isrc -Ivendor/metal-cpp $(shell sdl2-config --cflags)
 
 LDLIBS := $(shell sdl2-config --libs) \
+	-framework ImageIO -framework CoreGraphics \
 	-framework Foundation \
 	-framework Metal \
 	-framework QuartzCore
@@ -17,8 +18,12 @@ SOURCES := \
 	src/math/Transform.cpp \
 	src/scene/Camera.cpp \
 	src/scene/Scene.cpp \
+	src/scene/TestScene.cpp \
 	src/renderer/mesh/Mesh.cpp \
-	src/assets/ObjLoader.cpp
+	src/assets/ObjLoader.cpp \
+	src/assets/AssetLibrary.cpp \
+	src/renderer/mesh/MeshPrimitives.cpp \
+	src/renderer/Texture.cpp
 
 HEADERS := $(shell find src -name '*.hpp')
 

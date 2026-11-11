@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Config 
+namespace Config
 {
     constexpr int WindowWidth = 800;
     constexpr int WindowHeight = 600;

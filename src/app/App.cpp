@@ -1,22 +1,23 @@
+#include "scene/TestScene.hpp"
 #include "App.hpp"
+
 
 #include "renderer/Renderer.hpp"
 #include "core/Constants.hpp"
 
-#include "assets/ObjLoader.hpp"
-#include "renderer/mesh/Mesh.hpp"
+
 #include <chrono>
 
+
 #include <iostream>
+#include <Foundation/Foundation.hpp>
+
 
 App::App()
 {
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
-        std::cerr
-            << "SDL init failed: "
-            << SDL_GetError()
-            << '\n';
+        std::cerr << "SDL init failed: " << SDL_GetError() << '\n';
 
         return;
     }
@@ -27,15 +28,12 @@ App::App()
         SDL_WINDOWPOS_CENTERED,
         Config::WindowWidth,
         Config::WindowHeight,
-        SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
     );
 
     if (!window)
     {
-        std::cerr
-            << "Window creation failed: "
-            << SDL_GetError()
-            << '\n';
+        std::cerr << "Window creation failed: " << SDL_GetError() << '\n';
 
         return;
     }
@@ -44,17 +42,12 @@ App::App()
 
     if (!metalView)
     {
-        std::cerr
-            << "Metal view creation failed: "
-            << SDL_GetError()
-            << '\n';
+        std::cerr << "Metal view creation failed: " << SDL_GetError() << '\n';
 
         return;
     }
 
-    layer = static_cast<CA::MetalLayer*>(
-        SDL_Metal_GetLayer(metalView)
-    );
+    layer = static_cast<CA::MetalLayer*>(SDL_Metal_GetLayer(metalView));
 
     if (!layer)
     {
@@ -72,60 +65,24 @@ App::App()
 
     layer->setDevice(device);
 
-    layer->setPixelFormat(
-        MTL::PixelFormatBGRA8Unorm
-    );
+    layer->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
 
-    renderer = new Renderer(
-        device,
-        layer
-    );
+    renderer = new Renderer(device, layer);
 
-    scene = std::make_unique<Scene>();
-
-    MeshData data = ObjLoader::load("resources/models/test.obj");
-
-    auto model = std::make_shared<Mesh>(
-        device, 
-        std::span<const Vertex>(data.vertices),
-        std::span<const uint32_t>(data.indices)
-    );
-
-    auto& dragon = scene->addEntity(model);
-    dragon.transform.position[0] = 0.0f;
-    dragon.transform.scale = {0.6f, 0.6f, 0.6f};
-
-    scene->camera().position[2] = -2.0f;
-
-    Light sun;
-    sun.type = LightType::Directional;
-    sun.direction = {-0.5f, -1.0f, 0.5f};
-    sun.color = {1.0f, 0.2f, 0.1f};
-    sun.intensity = 2.0f;
-
-    scene->addLight(sun);
-
-    Light point;
-    point.type = LightType::Point;
-    point.position = {0.5f, 0.35f, -1.0f};
-    point.color = {0.2f, 0.4f, 1.0f};
-    point.intensity = 3.0f;
-    point.range = 6.0f;
-
-    scene->addLight(point);
+    scene = createTestScene(device);
 
     running = true;
 
-    std::cout
-        << "GPU: "
-        << device->name()->utf8String()
-        << '\n';
+    std::cout << "GPU: " << device->name()->utf8String() << '\n';
 }
+
 
 void App::run()
 {
     if (!renderer || !scene)
+    {
         return;
+    }
 
     using Clock = std::chrono::steady_clock;
     auto prevTime = Clock::now();
@@ -135,17 +92,29 @@ void App::run()
         processEvents();
 
         if (!running)
+        {
             break;
+        }
 
         auto now = Clock::now();
         float deltaTime = std::chrono::duration<float>(now - prevTime).count();
-    
+
         prevTime = now;
-        
+
         scene->update(deltaTime);
-        renderer->draw(*scene);
+        int drawableWidth = 0, drawableHeight = 0;
+        SDL_Metal_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+
+        if (drawableWidth > 0 && drawableHeight > 0)
+        {
+            layer->setDrawableSize(CGSizeMake(drawableWidth, drawableHeight));
+            auto* framePool = NS::AutoreleasePool::alloc()->init();
+            renderer->draw(*scene);
+            framePool->release();
+        }
     }
 }
+
 
 void App::processEvents()
 {
@@ -158,15 +127,13 @@ void App::processEvents()
             running = false;
         }
 
-        if (
-            event.type == SDL_KEYDOWN &&
-            event.key.keysym.sym == SDLK_ESCAPE
-        )
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
         {
             running = false;
         }
     }
 }
+
 
 App::~App()
 {

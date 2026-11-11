@@ -4,6 +4,7 @@
 #include <span>
 #include <cstdint>
 
+
 #include "renderer/Types.hpp"
 
 
@@ -21,10 +22,20 @@ public:
     Mesh(const Mesh&) = delete;
     Mesh& operator=(const Mesh&) = delete;
 
-    MTL::Buffer* vertexBuffer() const { return vertexBuffer_; }
-    MTL::Buffer* indexBuffer() const { return indexBuffer_; }
+    MTL::Buffer* vertexBuffer() const
+    {
+        return vertexBuffer_;
+    }
 
-    NS::UInteger indexCount() const { return indexCount_; }
+    MTL::Buffer* indexBuffer() const
+    {
+        return indexBuffer_;
+    }
+
+    NS::UInteger indexCount() const
+    {
+        return indexCount_;
+    }
 
 private:
     MTL::Buffer* vertexBuffer_ = nullptr;

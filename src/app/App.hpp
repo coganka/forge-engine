@@ -3,8 +3,10 @@
 #include <SDL.h>
 #include <SDL_metal.h>
 
+
 #include <Metal/Metal.hpp>
 #include <QuartzCore/QuartzCore.hpp>
+
 
 #include <memory>
 #include "scene/Scene.hpp"

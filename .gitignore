@@ -34,3 +34,15 @@
 !/.vscode/tasks.json
 !/.vscode/c_cpp_properties.json
 !/.vscode/extensions.json
+
+/resources/models/**/*.obj
+/resources/models/**/*.gltf
+/resources/models/**/*.glb
+/resources/models/**/*.bin
+/resources/models/**/*.png
+/resources/models/**/*.jpg
+/resources/models/**/*.zip
+/resources/textures/**/*.png
+/resources/textures/**/*.jpg
+/resources/textures/**/*.jpeg
+/resources/textures/**/*.zip

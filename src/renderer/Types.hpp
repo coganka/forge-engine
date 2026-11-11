@@ -3,12 +3,19 @@
 #include <simd/simd.h>
 
 
-struct Vertex 
+struct Vertex
 {
-    float x, y, z;
-    float r, g, b;
-    float u, v;
-    float nx, ny, nz;
+    float x;
+    float y;
+    float z;
+    float r;
+    float g;
+    float b;
+    float u;
+    float v;
+    float nx;
+    float ny;
+    float nz;
 };
 
 
@@ -17,7 +24,7 @@ struct Uniforms
     simd_float4x4 model;
     simd_float4x4 view;
     simd_float4x4 projection;
-    
+
     simd_float4 cameraPosition;
 };
 
